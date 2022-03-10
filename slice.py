@@ -17,7 +17,7 @@ class Slice:
             with open(f'{path}/main.py') as f:
                 file = f.read()
             return file
-        logging.warning(f'{path}/main.py does not exist')
+        print(f'{path}/main.py does not exist')
 
     def get_files(self):
         files_path = [i for i in os.listdir() if not re.match(r'.*\..*', string=i) and re.match(r'^\d.*', string=i)]
@@ -33,8 +33,11 @@ class Slice:
     def write_files(self, path, files):
         names = 'pre_exercise_code.py', 'sample_code.py', 'solution.py', 'expectation.py'
         for file, name in zip(files, names):
-            with open(f'{path}/{name}', 'w') as f:
-                f.write(file)
+            try:
+                with open(f'{path}/{name}', 'w') as f:
+                    f.write(file)
+            except TypeError:
+                logging.warning(f'ОШИБКА ЧТЕНИЯ ФАЙЛА {path+"/main.py"}')
 
     def get_code(self, file, target, line_skip=1, is_end=False):
         start = None
