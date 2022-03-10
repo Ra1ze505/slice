@@ -1,16 +1,28 @@
 import re
+import sys
 import os
 import logging
 
 
 class Slice:
 
-    def __init__(self):
-        for i in self.get_files():
-            file = self.get_main_py(i)
+    def __init__(self, path=None):
+        if path:
+            self.run_path(path)
+        else:
+            self.run_all()
+
+    def run_path(self, path):
+        file = self.get_main_py(path)
+        files = self.slice(file.split('\n'))
+        self.write_files(path, files)
+
+    def run_all(self):
+        for dir_name in self.get_files():
+            file = self.get_main_py(dir_name)
             if not file: continue
             files = self.slice(file.split('\n'))
-            self.write_files(i, files)
+            self.write_files(dir_name, files)
 
     def get_main_py(self, path: str):
         if os.path.isfile(f'{path}/main.py'):
@@ -51,4 +63,7 @@ class Slice:
 
 
 if __name__ == "__main__":
-    Slice()
+    if len(sys.argv) == 2:
+        Slice(path=sys.argv[1])
+    else:
+        Slice()
