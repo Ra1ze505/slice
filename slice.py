@@ -7,10 +7,14 @@ import subprocess
 
 class Slice:
 
-    def __init__(self, path=None):
+    def __init__(self, path=None, force=False):
+        self.force = force
         self.dir_name = None
+        self.pre_code = None
         self.sample_code = None
-        self.solution = None
+        self.sol_code = None
+        self.expectation_code = None
+
         if path:
             self.run_path(path)
         else:
@@ -27,8 +31,10 @@ class Slice:
             file = self.get_main_py(dir_name)
             if not file: continue
             files = self.slice(file.split('\n'))
-            self.checked_comment()
-            self.checked_test()
+
+            if not self.force and (False in {*self.valid_comment()} or not self.valid_test()):
+                breakpoint()
+                files = self.slice(self.get_main_py(dir_name).split('\n'))
             self.write_files(dir_name, files)
 
     def get_main_py(self, path: str):
@@ -44,11 +50,11 @@ class Slice:
         return files_path
 
     def slice(self, file):
-        pre_code = self.get_code(file, '# pre_code', 2)
-        sample_code = self.get_code(file, '# sample_code', 2)
-        sol_code = self.get_code(file, '# solution')
-        expectation_code = self.get_code(file, '# expectation', is_end=True)
-        return pre_code, sample_code, sol_code, expectation_code
+        self.pre_code = self.get_code(file, '# pre_code', 2)
+        self.sample_code = self.get_code(file, '# sample_code', 2)
+        self.sol_code = self.get_code(file, '# solution')
+        self.expectation_code = self.get_code(file, '# expectation', is_end=True)
+        return self.pre_code, self.sample_code, self.sol_code, self.expectation_code
 
     def write_files(self, path, files):
         names = 'pre_exercise_code.py', 'sample_code.py', 'solution.py', 'expectation.py'
@@ -56,7 +62,8 @@ class Slice:
             try:
                 with open(f'{path}/{name}', 'w') as f:
                     f.write(file)
-                subprocess.call(['python3.8', '-m', 'black', f'{self.dir_name}/{name}'])
+
+                subprocess.call(['python', '-m', 'black', f'{self.dir_name}/{name}'])
             except TypeError:
                 logging.warning(f'ОШИБКА ЧТЕНИЯ ФАЙЛА {path + "/main.py"}')
 
@@ -68,35 +75,42 @@ class Slice:
                 if is_end:
                     return '\n'.join(file[index + line_skip:])
             if start and index > start and i == "'''":
-                if target == "# sample_code":
-                    self.sample_code = file[start:index]
-                elif target == "# solution":
-                    self.solution = file[start:index]
                 return '\n'.join(file[start:index])
 
-    def checked_comment(self):
-        for sam, sol in zip(self.sample_code, self.solution):
-            if (re.search(r'#\s*', sam) and not re.search(r'\--$', sam)) \
-                    and (re.search(r'#\s*', sol) and not re.search(r'\--$', sol)):
-                res = [sam, sol]
-                if len(set(res)) > 1:
-                    print(f"\n Комментарий не совпадает: {self.dir_name} - {set(res)}\n")
-                    breakpoint()
-                elif re.search(r'#\s*[а-я]|#\s*[а-я]\s*\.|\.$', sam):
-                    print(
-                        f"\n Комментарий с маленькой буквы или точка в конце: {self.dir_name} - {sam}\n")
-                    breakpoint()
+    def valid_comment(self):
+        for sam, sol in zip(self.get_comments(self.sample_code), self.get_comments(self.sol_code)):
+            if sam != sol:
+                print(f"\n Комментарий не совпадает: {self.dir_name}\n{sam}\n{sol}")
+                yield False
+            elif re.search(r'#\s*[а-я]|\.\s*$', sam):
+                print(f"\n Комментарий с маленькой буквы или точка в конце: {self.dir_name} - {sam}\n")
+                yield False
+            yield True
 
-    def checked_test(self):
+    def valid_test(self):
         print(f"Тест: {self.dir_name}/main.py")
-        proc = subprocess.call(['pytest', f'{self.dir_name}/main.py'])
+        os.chdir(self.dir_name)
+        proc = subprocess.call(['pytest', 'main.py'])
+        os.chdir('../')
         if proc == 2:
             print(f"\n Ошибка ожиданий: {self.dir_name}\n")
-            breakpoint()
+            return False
+        return True
+
+    @staticmethod
+    def get_comments(code: str) -> list:
+        comments = []
+        for line in code.split("\n"):
+            comment = re.search(r"#.*", line)
+            if comment:
+                comments.append(comment.string.rstrip(" ").rstrip("\r"))
+        return comments
 
 
 if __name__ == "__main__":
-    if len(sys.argv) == 2:
+    if len(sys.argv) == 2 and sys.argv[1] == "-f":
+        Slice(force=True)
+    elif len(sys.argv) == 2:
         Slice(path=sys.argv[1])
     else:
         Slice()
