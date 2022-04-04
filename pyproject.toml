@@ -6,6 +6,8 @@ authors = ["Ra1ze505 <87398772+Ra1ze505@users.noreply.github.com>"]
 
 [tool.poetry.dependencies]
 python = "^3.9"
+pytest = "^7.1.1"
+tcs-pythonwhat = "^2.24.21"
 
 [tool.poetry.dev-dependencies]
 
